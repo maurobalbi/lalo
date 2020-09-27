@@ -1,15 +1,26 @@
-#[macro_use] extern crate lalrpop_util;
+mod lexer;
+mod token;
+mod error;
 
-lalrpop_mod!(pub calculator1); // synthesized by LALRPOP
+use std::io;
+use io::Write;
 
-fn main() {
-    println!("Hello, world!");
-}
+pub use crate::lexer::Lexer;
 
-#[test]
-fn calculator1() {
-    assert!(calculator1::TermParser::new().parse("22").is_ok());
-    assert!(calculator1::TermParser::new().parse("(22)").is_ok());
-    assert!(calculator1::TermParser::new().parse("((((22))))").is_ok());
-    assert!(calculator1::TermParser::new().parse("((22)").is_err());
+fn main() -> io::Result<()> {
+
+    print!("> ");
+    io::stdout().flush().unwrap();
+
+    let mut input = String::new();
+
+    io::stdin().read_line(&mut input)?;
+
+    match Lexer::new(&input).next() {
+        Ok(Some(token)) => println!("{:?}", token),
+        _ => println!("whatwhatwhat"),
+    }
+
+   
+    Ok(())
 }
