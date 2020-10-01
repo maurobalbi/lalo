@@ -1,5 +1,5 @@
 use crate::error::ParseError;
-use crate::token::{Kind, Token, NumberLiteral};
+use crate::token::{Kind, Span, NumberLiteral, Token};
 
 #[derive(Debug, Clone)]
 pub struct Lexer<'a> {
@@ -9,16 +9,32 @@ pub struct Lexer<'a> {
 
 impl<'a> Lexer<'a> {
     pub fn new(source: &'a str) -> Self {
-        Self { cursor:0, source }
+        Self { cursor: 0, source }
+    }
+
+    /// Calculate the end span by peeking the next token.
+    fn end_span<I, T>(&self, it: &I) -> usize
+    where
+        I: Iterator<Item = (usize, T)> + Clone,
+    {
+        it.clone()
+            .next()
+            .map(|(n, _)| self.cursor + n)
+            .unwrap_or(self.source.len())
+    }
+
+    /// Access the end span of the input.
+    pub fn end(&self) -> Span {
+        Span::point(self.source.len())
     }
 
     fn next_number_literal<I>(
         &mut self,
         it: &mut I,
         start: usize,
-    ) -> Result<Option<Token>, ParseError> 
+    ) -> Result<Option<Token>, ParseError>
     where
-    I: Clone + Iterator<Item = (usize, char)>,
+        I: Clone + Iterator<Item = (usize, char)>,
     {
         let number = match it.clone().next() {
             _ => NumberLiteral::Decimal,
@@ -37,14 +53,19 @@ impl<'a> Lexer<'a> {
         };
         return Ok(Some(Token {
             kind: Kind::NumberLiteral { number },
+            span: Span {
+                start,
+                end: self.cursor,
+            }
         }));
-
     }
 
     pub fn next(&mut self) -> Result<Option<Token>, ParseError> {
-        let mut it = self.source.char_indices();
+        let mut it = self.source[self.cursor..].char_indices();
 
         while let Some((start, c)) = it.next() {
+            let start = self.cursor + start;
+
             if char::is_whitespace(c) {
                 continue;
             }
@@ -59,14 +80,29 @@ impl<'a> Lexer<'a> {
                         return self.next_number_literal(&mut it, start);
                     }
                     _ => {
-                        return Err(ParseError::UnexpectedChar { c });
+                        let span = Span {
+                            start,
+                            end: self.end_span(&mut it)
+                        };
+
+                        return Err(ParseError::UnexpectedChar { span, c });
                     }
                 };
             };
 
-            return Ok(Some(Token { kind }));
+            self.cursor = self.end_span(&it);
+
+            return Ok(Some(Token { 
+                kind,
+                span: Span {
+                    start,
+                    end: self.cursor
+                }            
+             }));
         }
 
+        self.cursor = self.source.len();
+        print!("{:?}", self.cursor);
         Ok(None)
     }
 }
