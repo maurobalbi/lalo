@@ -88,7 +88,16 @@ pub enum Kind {
     Plus,
     Minus,
     Slash,
+    BackSlash,
     Star,
+    Eq,
+    If,
+    Else,
+    Then,
+    Let,
+    True,
+    False,
+    Ident,
 }
 
 impl fmt::Display for Kind {
@@ -98,7 +107,16 @@ impl fmt::Display for Kind {
             Self::Plus => write!(fmt, "+"),
             Self::Minus => write!(fmt, "-"),
             Self::Slash => write!(fmt, "/"),
+            Self::BackSlash => write!(fmt, "\\"),
             Self::Star => write!(fmt, "*"),
+            Self::Eq => write!(fmt, "="),
+            Self::If => write!(fmt, "if"),
+            Self::Else => write!(fmt, "else"),
+            Self::Then => write!(fmt, "then"),
+            Self::Let => write!(fmt, "let"),
+            Self::True => write!(fmt, "true"),
+            Self::False => write!(fmt, "false"),
+            Self::Ident => write!(fmt, "ident"),
         }
     }
 }

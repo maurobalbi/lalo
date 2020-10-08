@@ -28,6 +28,47 @@ impl<'a> Lexer<'a> {
         Span::point(self.source.len())
     }
 
+    fn next_ident<I>(
+        &mut self, 
+        it: &mut I,
+        start: usize
+    ) -> Result<Option<Token>, ParseError>
+    where
+        I: Clone + Iterator<Item = (usize, char)>,
+    {
+        self.cursor = loop {
+            break match it.clone().next() {
+                Some((n, c)) => match c {
+                    'a'..='z' | 'A'..='Z' | '_' | '0'..='9' => {
+                        it.next();
+                        continue;
+                    }
+                    _ => self.cursor + n,
+                },
+                None => self.source.len(),
+            };
+        };
+
+        let ident = &self.source[start..self.cursor];
+
+        let kind = match ident {
+            "let" => Kind::Let,
+            "if" => Kind::If,
+            "else" => Kind::Else,
+            "true" => Kind::True,
+            "false" => Kind::False,
+            _ => Kind::Ident,
+        };
+
+        Ok(Some(Token {
+            kind,
+            span: Span {
+                start,
+                end: self.cursor,
+            },
+        }))
+    }
+
     fn next_number_literal<I>(
         &mut self,
         it: &mut I,
@@ -76,9 +117,14 @@ impl<'a> Lexer<'a> {
                     '-' => Kind::Minus,
                     '/' => Kind::Slash,
                     '*' => Kind::Star,
+                    '\\' => Kind::BackSlash,
                     '0'..='9' => {
                         return self.next_number_literal(&mut it, start);
-                    }
+                    },
+                    'a'..='y' | 'A'..='Z' => {
+                        return self.next_ident(&mut it, start);
+                    },
+                    '=' => Kind::Eq,
                     _ => {
                         let span = Span {
                             start,

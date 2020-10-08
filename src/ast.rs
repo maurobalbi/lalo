@@ -1,7 +1,7 @@
 use crate::error::{ParseError, Result};
 use crate::parser::Parser;
-use crate::token::{self, Kind, Token};
-use crate::traits::Parse;
+use crate::token::{self, Kind, Token, Span};
+use crate::traits::{Parse, Peek};
 
 pub enum Number {
     Float(f64),
@@ -9,12 +9,19 @@ pub enum Number {
 }
 
 /// A number literal.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct NumberLiteral {
     /// The kind of the number literal.
     number: token::NumberLiteral,
     /// The token corresponding to the literal.
     token: Token,
+}
+
+impl NumberLiteral {
+    /// Access the span of the expression.
+    pub fn span(&self) -> Span {
+        self.token.span
+    }
 }
 
 impl Parse for NumberLiteral {
@@ -88,20 +95,126 @@ impl Parse for BinOp {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
+pub struct Let {
+    pub let_: LetToken,
+    pub name: Ident,
+    pub eq: Eq,
+    pub expr: Box<Expr>,
+}
+
+impl Let {
+    /// Access the span of the expression.
+    pub fn span(&self) -> Span {
+        self.let_.token.span.join(self.expr.span())
+    }
+}
+
+impl Parse for Let {
+    fn parse(parser: &mut Parser) -> Result<Self, ParseError> {
+        Ok(Self {
+            let_: parser.parse()?,
+            name: parser.parse()?,
+            eq: parser.parse()?,
+            expr: Box::new(parser.parse()?),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Lambda {
+    pub backslash_: BackSlashToken,
+    pub args: FunctionArgs,
+    pub body: Box<Expr>,
+}
+
+impl Lambda {
+    pub fn span(&self) -> Span {
+        self.backslash_.span().join(self.body.span())
+    }
+}
+
+impl Parse for Lambda {
+    fn parse(parser: &mut Parser<'_>) -> Result<Self, ParseError> {
+        let backslash_ = parser.parse()?;
+
+        let args = parser.parse()?;
+
+        parser.parse::<Eq>()?; 
+
+        let body = Box::new(parser.parse()?);
+
+        Ok(Self { backslash_, args, body})
+    }
+}
+
+/// Something parenthesized and comma separated `(<T,>*)`.
+#[derive(Debug, Clone)]
+pub struct FunctionArgs {
+    pub first: Ident,
+    /// The parenthesized type.
+    pub rest: Vec<Ident>,
+}
+
+impl FunctionArgs {
+    /// Access the span of expression.
+    pub fn span(&self) -> Span {
+        match self.rest.last() {
+            Some(ident) => self.first.span().join(ident.span()),
+            _ => self.first.span()
+        }
+    }
+}
+
+impl Parse for FunctionArgs {
+    fn parse(parser: &mut Parser<'_>) -> Result<Self, ParseError> {
+        let first = parser.parse()?;
+
+        let mut rest = Vec::new();
+
+        while parser.peek::<Ident>()? {
+            rest.push(parser.parse()?);
+        }
+
+        Ok(Self { first, rest })
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct ExprBinary {
     pub lhs: Box<Expr>,
     pub op: BinOp,
     pub rhs: Box<Expr>,
 }
 
-#[derive(Debug)]
+impl ExprBinary {
+    /// Access the span of the expression.
+    pub fn span(&self) -> Span {
+        self.lhs.span().join(self.rhs.span())
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum Expr {
     ExprBinary(ExprBinary),
+    Ident(Ident),
+    Lambda(Lambda),
+    Let(Let),
     NumberLiteral(NumberLiteral),
 }
 
 impl Expr {
+    /// Get the span of the expression.
+    pub fn span(&self) -> Span {
+        match self {
+            Self::Let(expr) => expr.span(),
+            Self::Ident(expr) => expr.span(),
+            Self::Lambda(expr) => expr.span(),
+            Self::NumberLiteral(expr) => expr.span(),
+            Self::ExprBinary(expr) => expr.span(),
+        }
+    }
+
     fn parse_default(parser: &mut Parser<'_>) -> Result<Self, ParseError> {
         Self::parse_primary(parser)
     }
@@ -114,6 +227,8 @@ impl Expr {
 
         Ok(match token.kind {
             Kind::NumberLiteral { .. } => Self::NumberLiteral(parser.parse()?),
+            Kind::Let { .. } => Self::Let(parser.parse()?),
+            Kind::BackSlash { .. } => Self::Lambda(parser.parse()?),
             _ => {
                 return Err(ParseError::ExpectedExprError {
                     actual: token.kind,
@@ -179,4 +294,62 @@ impl Parse for Expr {
         let lhs = Self::parse_default(parser)?;
         Self::parse_expr_binary(parser, lhs, 0)
     }
+}
+
+macro_rules! decl_tokens {
+    ($(($parser:ident, $($kind:tt)*),)*) => {
+        $(
+            /// Helper parser for a specifik token kind
+            #[derive(Debug, Clone, Copy)]
+            pub struct $parser {
+                /// Associated token.
+                pub token: Token,
+            }
+
+            impl $parser {
+                /// Access the span of the token.
+                pub fn span(&self) -> Span {
+                    self.token.span
+                }
+            }
+
+            impl Parse for $parser {
+                fn parse(parser: &mut Parser<'_>) -> Result<Self, ParseError> {
+                    let token = parser.token_next()?;
+
+                    match token.kind {
+                        $($kind)* => Ok(Self {
+                            token,
+                        }),
+                        _ => Err(ParseError::TokenMismatch {
+                            expected: $($kind)*,
+                            actual: token.kind,
+                            span: token.span,
+                        }),
+                    }
+                }
+            }
+
+            impl Peek for $parser {
+                fn peek(p1: Option<Token>) -> bool {
+                    match p1 {
+                        Some(p1) => match p1.kind {
+                            $($kind)* => true,
+                            _ => false,
+                        }
+                        _ => false,
+                    }
+                }
+            }
+        )*
+    }
+}
+
+decl_tokens! {
+    (IfToken, Kind::If),
+    (ElseToken, Kind::Else),
+    (LetToken, Kind::Let),
+    (BackSlashToken, Kind::BackSlash),
+    (Ident, Kind::Ident),
+    (Eq, Kind::Eq),
 }
