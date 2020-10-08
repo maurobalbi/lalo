@@ -84,6 +84,7 @@ impl fmt::Display for NumberLiteral {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Kind {
+    Arrow,
     NumberLiteral { number: NumberLiteral },
     Plus,
     Minus,
@@ -103,6 +104,7 @@ pub enum Kind {
 impl fmt::Display for Kind {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
+            Self::Arrow => write!(fmt, "=>"),
             Self::NumberLiteral { number } => write!(fmt, "{}", number),
             Self::Plus => write!(fmt, "+"),
             Self::Minus => write!(fmt, "-"),

@@ -112,6 +112,16 @@ impl<'a> Lexer<'a> {
             }
 
             let kind = loop {
+                if let Some(c2) = it.clone().next().map(|(_, c)| c) {
+                    match (c, c2) {
+                        ('=', '>') => {
+                            it.next();
+                            break Kind::Arrow;
+                        },
+                        _ => (),
+                    }
+                }
+
                 break match c {
                     '+' => Kind::Plus,
                     '-' => Kind::Minus,

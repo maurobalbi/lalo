@@ -140,7 +140,7 @@ impl Parse for Lambda {
 
         let args = parser.parse()?;
 
-        parser.parse::<Eq>()?; 
+        parser.parse::<Arrow>()?; 
 
         let body = Box::new(parser.parse()?);
 
@@ -219,6 +219,10 @@ impl Expr {
         Self::parse_primary(parser)
     }
 
+    fn parse_ident_start(parser: &mut Parser<'_>) -> Result<Self, ParseError> {
+        Ok( Self::Ident(parser.parse()?))
+    }
+
     fn parse_primary(
         parser: &mut Parser<'_>,
 
@@ -229,6 +233,7 @@ impl Expr {
             Kind::NumberLiteral { .. } => Self::NumberLiteral(parser.parse()?),
             Kind::Let { .. } => Self::Let(parser.parse()?),
             Kind::BackSlash { .. } => Self::Lambda(parser.parse()?),
+            Kind::Ident { .. } => Self::parse_ident_start(parser)?,
             _ => {
                 return Err(ParseError::ExpectedExprError {
                     actual: token.kind,
@@ -346,6 +351,7 @@ macro_rules! decl_tokens {
 }
 
 decl_tokens! {
+    (Arrow, Kind::Arrow),
     (IfToken, Kind::If),
     (ElseToken, Kind::Else),
     (LetToken, Kind::Let),
