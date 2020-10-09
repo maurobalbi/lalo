@@ -65,7 +65,17 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub(crate) fn token_peek_eof(&mut self) -> Result<Token, ParseError> {
+    pub fn eof(&mut self) -> Result<(), ParseError> {
+        match self.p1 {
+            Ok(Some( token )) => Err(ParseError::ExpectedEof {
+                actual: token.kind,
+                span: token.span,
+            }),
+            _ => Ok(())
+        }
+    }
+
+    pub fn token_peek_eof(&mut self) -> Result<Token, ParseError> {
         match self.p1? {
             Some(token) => Ok(token),
             None => Err(ParseError::UnexpectedEof {

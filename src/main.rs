@@ -38,12 +38,7 @@ where
     let mut parser = Parser::new(source);
     let ast = parser.parse::<T>()?;
 
-    if let Some(token) = parser.lexer.next()? {
-        return Err(ParseError::ExpectedEof {
-            actual: token.kind,
-            span: parser.lexer.end(),
-        });
-    }
+    parser.eof()?;
 
     Ok(ParseAll {
         source: Source { source },
