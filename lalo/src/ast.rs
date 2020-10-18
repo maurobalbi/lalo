@@ -122,9 +122,40 @@ impl Parse for Let {
 }
 
 #[derive(Debug, Clone)]
+pub struct ExprIf {
+    pub if_: IfToken,
+    pub condition: Ident,
+    pub then_: ThenToken,
+    pub expr_then: Box<Expr>,
+    pub else_: ElseToken,
+    pub expr_else: Box<Expr>,
+}
+
+impl ExprIf {
+    /// Access the span of the expression.
+    pub fn span(&self) -> Span {
+        self.if_.token.span.join(self.expr_else.span())
+    }
+}
+
+impl Parse for ExprIf {
+    fn parse(parser: &mut Parser) -> Result<Self, ParseError> {
+        Ok(Self {
+            if_: parser.parse()?,
+            condition: parser.parse()?,
+            then_: parser.parse()?,
+            expr_then: Box::new(parser.parse()?),
+            else_: parser.parse()?,
+            expr_else: Box::new(parser.parse()?),
+        })
+    }
+}
+
+
+#[derive(Debug, Clone)]
 pub struct Lambda {
     pub backslash_: BackSlashToken,
-    pub args: FunctionArgs,
+    pub arg: Ident,
     pub body: Box<Expr>,
 }
 
@@ -138,13 +169,13 @@ impl Parse for Lambda {
     fn parse(parser: &mut Parser<'_>) -> Result<Self, ParseError> {
         let backslash_ = parser.parse()?;
 
-        let args = parser.parse()?;
+        let arg = parser.parse()?;
 
         parser.parse::<Arrow>()?; 
 
         let body = Box::new(parser.parse()?);
 
-        Ok(Self { backslash_, args, body})
+        Ok(Self { backslash_, arg, body})
     }
 }
 
@@ -200,6 +231,7 @@ pub enum Expr {
     Ident(Ident),
     Lambda(Lambda),
     Let(Let),
+    ExprIf(ExprIf),
     NumberLiteral(NumberLiteral),
 }
 
@@ -208,6 +240,7 @@ impl Expr {
     pub fn span(&self) -> Span {
         match self {
             Self::Let(expr) => expr.span(),
+            Self::ExprIf(expr) => expr.span(),
             Self::Ident(expr) => expr.span(),
             Self::Lambda(expr) => expr.span(),
             Self::NumberLiteral(expr) => expr.span(),
@@ -234,6 +267,7 @@ impl Expr {
             Kind::Let { .. } => Self::Let(parser.parse()?),
             Kind::BackSlash { .. } => Self::Lambda(parser.parse()?),
             Kind::Ident { .. } => Self::parse_ident_start(parser)?,
+            Kind::If { .. } => Self::ExprIf(parser.parse()?),
             _ => {
                 return Err(ParseError::ExpectedExprError {
                     actual: token.kind,
@@ -353,6 +387,7 @@ macro_rules! decl_tokens {
 decl_tokens! {
     (Arrow, Kind::Arrow),
     (IfToken, Kind::If),
+    (ThenToken, Kind::Then),
     (ElseToken, Kind::Else),
     (LetToken, Kind::Let),
     (BackSlashToken, Kind::BackSlash),

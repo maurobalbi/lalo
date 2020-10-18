@@ -54,6 +54,7 @@ impl<'a> Lexer<'a> {
         let kind = match ident {
             "let" => Kind::Let,
             "if" => Kind::If,
+            "then" => Kind::Then,
             "else" => Kind::Else,
             "true" => Kind::True,
             "false" => Kind::False,
