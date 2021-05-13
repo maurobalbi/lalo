@@ -124,7 +124,7 @@ impl Parse for Let {
 #[derive(Debug, Clone)]
 pub struct ExprIf {
     pub if_: IfToken,
-    pub condition: Ident,
+    pub condition: Box<Expr>,
     pub then_: ThenToken,
     pub expr_then: Box<Expr>,
     pub else_: ElseToken,
@@ -142,7 +142,7 @@ impl Parse for ExprIf {
     fn parse(parser: &mut Parser) -> Result<Self, ParseError> {
         Ok(Self {
             if_: parser.parse()?,
-            condition: parser.parse()?,
+            condition: Box::new(parser.parse()?),
             then_: parser.parse()?,
             expr_then: Box::new(parser.parse()?),
             else_: parser.parse()?,
