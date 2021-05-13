@@ -1,0 +1,8 @@
+number = 5
+
+number1 = number + 1
+
+testfn =
+    bcd => bcd + number1
+
+testfn 5
