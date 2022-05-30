@@ -16,6 +16,9 @@ import Control.Monad.Except
 -- Entry point
 %name expr
 
+-- Entry point
+%name expr
+
 -- Lexer structure 
 %tokentype { Token }
 
@@ -63,9 +66,9 @@ Fact : Fact Atom                   { App $1 $2 }
 
 Atom : '(' Expr ')'                { $2 }
      | NUM                         { Lit (LInt $1) }
+     | VAR                         { Var $1 }
      | true                        { Lit (LBool True) }
      | false                       { Lit (LBool False) }
-     | VAR                         { Var $1 }
 
 {
 
