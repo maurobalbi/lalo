@@ -25,6 +25,9 @@ library
                     , Lalo.Parser
                     , Lalo.Eval
                     , Lalo.Lexer
+                    , Lalo.Parser.Span
+                    , Lalo.Parser.Token
+                    , Lalo.Parser.Monad
 
     -- Modules included in this library but not exported.
     -- other-modules:
@@ -35,6 +38,11 @@ library
                     , containers
                     , array
                     , mtl
+                    , diagnose
+                    , bytestring
+                    , utf8-string
+                    , text
+                    , megaparsec
     hs-source-dirs:   src
     default-language: GHC2021
 
@@ -49,13 +57,19 @@ executable lalo
     build-depends:
         base ^>=4.16.1.0
       , haskeline
+      , megaparsec
       , transformers
+      , utf8-string
       , mtl
+      , bytestring
       , lalo
+      , diagnose
     
     build-tool-depends:
         happy:happy
       , alex:alex
+    flags:
+      diagnose:megaparsec-compat
 
     hs-source-dirs:   app
     default-language: GHC2021

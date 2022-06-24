@@ -1,0 +1,33 @@
+data Box a = Box a
+
+data Maybe a = Nothing | Just a
+
+bla = 1
+
+function: Int -> Int -> Int
+function = \x -> \y -> { x + y }
+
+function(1, 2)
+
+function(1)(2)
+
+showMaybe: Show a => Maybe a -> String
+showMaybe x = match x {
+  Nothing -> "nothing",
+  Just a -> "Just " <> show a
+}
+
+trait Show a {
+  show: a -> String
+}
+
+implement Show a => Show Maybe a {
+  show = showMaybe
+}
+
+person: {name: String}
+person = {name: age}
+
+mergeName :: {firstName::String, lastName:: String, ...rest} -> {name::String, ...rest }
+
+

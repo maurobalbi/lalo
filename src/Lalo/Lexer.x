@@ -1,16 +1,18 @@
 {
 module Lalo.Lexer (
   Token(..),
-  scanTokens
+  scanToken,
+  lexer
 ) where
 
-import Lalo.Syntax
+import qualified Data.Text as T
+import Lalo.Parser.Monad
+import Lalo.Parser.Span
+import Lalo.Parser.Token
 
 import Control.Monad.Except
 
 }
-
-%wrapper "basic"
 
 $digit = 0-9
 $alpha = [a-zA-Z]
@@ -26,57 +28,47 @@ tokens :-
   "#".*                         ;
 
   -- Syntax
-  let                           { \s -> TokenLet }
-  if                            { \s -> TokenIf }
-  then                          { \s -> TokenThen }
-  else                          { \s -> TokenElse }
-  True                          { \s -> TokenTrue }
-  False                         { \s -> TokenFalse }
-  in                            { \s -> TokenIn }
-  $digit+                       { \s -> TokenNum (read s) }
-  "->"                          { \s -> TokenArrow }
-  \=                            { \s -> TokenEq }
-  \\                            { \s -> TokenLambda }
-  [\+]                          { \s -> TokenAdd }
-  [\-]                          { \s -> TokenSub }
-  [\*]                          { \s -> TokenMul }
-  \(                            { \s -> TokenLParen }
-  \)                            { \s -> TokenRParen }
-  $alpha [$alpha $digit \_ \']* { \s -> TokenSym s }
+  let                           { token TokenLet }
+  if                            { token TokenIf }
+  then                          { token TokenThen }
+  else                          { token TokenElse }
+  True                          { token TokenTrue }
+  False                         { token TokenFalse }
+  in                            { token TokenIn }
+  $digit+                       { token (\loc -> TokenNum (read. T.unpack <$> loc)) }
+  "->"                          { token TokenArrow }
+  \=                            { token TokenEq }
+  \\                            { token TokenLambda }
+  [\+]                          { token TokenAdd }
+  [\-]                          { token TokenSub }
+  [\*]                          { token TokenMul }
+  \(                            { token TokenLParen }
+  \)                            { token TokenRParen }
+  $alpha [$alpha $digit \_ \']* { token TokenSym  }
 
 {
 
-data Token 
-  = TokenLet
-  | TokenTrue
-  | TokenFalse
-  | TokenIn
-  | TokenLambda
-  | TokenNum Int
-  | TokenSym String
-  | TokenArrow
-  | TokenEq
-  | TokenIf
-  | TokenThen
-  | TokenElse
-  | TokenAdd
-  | TokenSub
-  | TokenMul
-  | TokenLParen
-  | TokenRParen
-  | TokenEOF
-  deriving (Eq,Show)
 
-scanTokens :: String -> Except String [Token]
-scanTokens str = go ('\n',[],str) where 
-  go inp@(_,_bs,str) =
-    case alexScan inp 0 of
-     AlexEOF -> return []
-     AlexError _ -> throwError "Invalid lexeme."
-     AlexSkip  inp' len     -> go inp'
-     AlexToken inp' len act -> do
-      res <- go inp'
-      let rest = act (take len str)
-      return (rest : res)
+scanToken :: Parser Token
+scanToken = do
+  input <- getInput
+  case alexScan input 0 of
+    AlexEOF -> pure TokenEOF
+    AlexError (AlexInput pos _ _ _) ->
+      parseError $ InvalidLexeme pos
+    AlexSkip rest len -> do
+      advance rest
+      scanToken
+    AlexToken rest nbytes action -> do
+      advance rest
+      action (slice nbytes input)
+
+
+lexer :: Parser [Token]
+lexer = do
+  token <- scanToken
+  case token of
+    TokenEOF -> pure []
+    x -> (x :) <$> lexer
 
 }

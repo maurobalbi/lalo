@@ -1,0 +1,42 @@
+module Lalo.Parser.Span where
+
+data AlexSourcePos = AlexSourcePos {line :: !Int, col :: !Int}
+  deriving (Show, Eq, Ord)
+
+overCol :: (Int -> Int) -> AlexSourcePos -> AlexSourcePos
+overCol f (AlexSourcePos line col) = AlexSourcePos line (f col)
+
+overLine :: (Int -> Int) -> AlexSourcePos -> AlexSourcePos
+overLine f (AlexSourcePos line col) = AlexSourcePos (f line) col
+
+alexStartPos :: AlexSourcePos
+alexStartPos = AlexSourcePos 1 1
+
+-------------
+--- Spans ---
+-------------
+
+data Span = Span {start :: AlexSourcePos, end :: AlexSourcePos}
+  deriving (Show)
+
+instance Semigroup Span where
+  (Span s1 e1) <> (Span s2 e2) = Span (min s1 s2) (max e1 e2)
+
+overStart :: (AlexSourcePos -> AlexSourcePos) -> Span -> Span
+overStart f (Span start end) = Span (f start) end
+
+overEnd :: (AlexSourcePos -> AlexSourcePos) -> Span -> Span
+overEnd f (Span start end) = Span start (f end)
+
+setStart :: AlexSourcePos -> Span -> Span
+setStart sp (Span _ end) = Span sp end
+
+setEnd :: AlexSourcePos -> Span -> Span
+setEnd sp (Span start _) = Span start sp
+
+-----------------
+--- Locations ---
+-----------------
+
+data Loc a = Loc {span :: Span, unloc :: a}
+  deriving (Show, Functor)

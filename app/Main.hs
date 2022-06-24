@@ -1,21 +1,26 @@
 import Lalo.Syntax (Expr)
 import Lalo.Eval (runEval)
-import Lalo.Parser (parseExpr, parseTokens)
+import Lalo.Parser (parse)
+
+import Error.Diagnose
+
+import Data.Either
 
 import Control.Monad.Trans
 import System.Console.Haskeline
+import qualified Data.ByteString as B
+import qualified Data.ByteString.UTF8 as BSU
 
-process :: String -> IO ()
+process :: B.ByteString -> IO ()
 process input = do
-  let tokens = parseTokens input
-  putStrLn ("Tokens: " ++ show tokens)
-  let ast = parseExpr input
-  putStrLn ("Syntax: " ++ show ast)
-  case ast of
-    Left err -> do
-      putStrLn "Parse Error:"
-      print err
-    Right ast -> exec ast
+  case parse input of
+      Left err -> do
+        putStrLn "Parse Error:"
+        -- let diag = addFile def "some_test.txt" "let id<a>(x : a) : a := x\n  + 1"
+        -- let diag' = addReport diag err
+        -- printDiagnostic stdout False True 4 defaultStyle diag'
+        putStrLn $ show err
+      Right ast -> exec ast
 
 exec :: Expr -> IO ()
 exec ast = do
@@ -23,7 +28,10 @@ exec ast = do
   case result of
     Left err -> do
       putStrLn "Runtime Error:"
-      putStrLn err
+      -- let diag = addFile def "some_test.txt" "let id<a>(x : a) : a := x\n  + 1"
+      -- let diag' = addReport diag err
+      -- printDiagnostic stdout False True 4 defaultStyle diag'
+      putStrLn $ show err
     Right res -> print res
 
 main :: IO ()
@@ -33,4 +41,4 @@ main = runInputT defaultSettings loop
     minput <- getInputLine "Happy> "
     case minput of
       Nothing -> outputStrLn "Goodbye."
-      Just input -> (liftIO $ process input) >> loop
+      Just input -> (liftIO $ process $ BSU.fromString input) >> loop

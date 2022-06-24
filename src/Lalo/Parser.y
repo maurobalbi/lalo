@@ -2,12 +2,20 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Lalo.Parser (
-  parseExpr,
-  parseTokens,
+  parse,
 ) where
 
-import Lalo.Lexer
+import Lalo.Lexer as L
+import Lalo.Parser.Monad as M
+import Lalo.Parser.Token
 import Lalo.Syntax
+import Lalo.Parser.Span
+
+import Debug.Trace
+
+import Data.ByteString as B
+
+import Error.Diagnose
 
 import Control.Monad.Except
 
@@ -16,35 +24,32 @@ import Control.Monad.Except
 -- Entry point
 %name expr
 
--- Entry point
-%name expr
-
 -- Lexer structure 
 %tokentype { Token }
 
 -- Parser monad
-%monad { Except String } { (>>=) } { return }
-%error { parseError }
+%monad { Parser }
+%error { failure }
 
 -- Token Names
 %token
-    let   { TokenLet }
-    if    { TokenIf }
-    then  { TokenThen }
-    else  { TokenElse }
-    true  { TokenTrue }
-    false { TokenFalse }
-    in    { TokenIn }
+    let   { TokenLet $$}
+    if    { TokenIf $$}
+    then  { TokenThen $$}
+    else  { TokenElse $$}
+    true  { TokenTrue $$}
+    false { TokenFalse $$}
+    in    { TokenIn $$}
     NUM   { TokenNum $$ }
     VAR   { TokenSym $$ }
-    '\\'  { TokenLambda }
-    '->'  { TokenArrow }
-    '='   { TokenEq }
-    '+'   { TokenAdd }
-    '-'   { TokenSub }
-    '*'   { TokenMul }
-    '('   { TokenLParen }
-    ')'   { TokenRParen }
+    '\\'  { TokenLambda $$}
+    '->'  { TokenArrow $$}
+    '='   { TokenEq $$}
+    '+'   { TokenAdd $$}
+    '-'   { TokenSub $$}
+    '*'   { TokenMul $$}
+    '('   { TokenLParen $$}
+    ')'   { TokenRParen $$}
 
 -- Operators
 %left '+' '-'
@@ -71,17 +76,19 @@ Atom : '(' Expr ')'                { $2 }
      | false                       { Lit (LBool False) }
 
 {
+failure :: [Token] -> M.Parser a
+failure [] = do
+  sp <- M.location
+  M.parseError M.EmptyTokenStream
+failure (tok:_) = do
+  sp <- M.location
+  M.parseError $ M.UnexpectedToken (Loc sp tok)
+ 
+lex :: B.ByteString -> Either ParseError [Token]
+lex bs = M.runParser bs L.lexer
 
-parseError :: [Token] -> Except String a
-parseError (l:ls) = throwError (show l)
-parseError [] = throwError "Unexpected end of Input"
-
-parseExpr :: String -> Either String Expr
-parseExpr input = runExcept $ do
-  tokenStream <- scanTokens input
-  expr tokenStream
-
-parseTokens :: String -> Either String [Token]
-parseTokens = runExcept . scanTokens
-    
+parse :: B.ByteString -> Either ParseError Expr
+parse bs = M.runParser bs $ do
+  toks <- L.lexer
+  expr toks
 }

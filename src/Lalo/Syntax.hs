@@ -1,6 +1,9 @@
 module Lalo.Syntax where
 
-type Name = String
+import Data.Text as T
+import Lalo.Parser.Span
+
+type Name = Loc T.Text
 
 data Expr
   = Lam Name Expr
@@ -9,12 +12,12 @@ data Expr
   | Lit Lit
   | Op Binop Expr Expr
   | If Expr Expr Expr
-  deriving (Eq,Show)
+  deriving (Show)
 
 data Lit
-  = LInt Int
+  = LInt (Loc Int)
   | LBool Bool
-  deriving (Show, Eq, Ord)
+  deriving (Show)
 
 data Binop = Add | Sub | Mul | Eql
   deriving (Eq, Ord, Show)
