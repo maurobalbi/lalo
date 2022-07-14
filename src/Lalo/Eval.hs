@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Lalo.Eval (
   runEval,
 ) where
@@ -6,20 +7,21 @@ import Lalo.Syntax
 
 import Control.Monad.Except
 import qualified Data.Map as Map
+import qualified Data.Text as T
 
 data Value
   = VInt Integer
   | VBool Bool
-  | VClosure String Expr (Scope)
+  | VClosure T.Text Expr (Scope)
 
 instance Show Value where
   show (VInt x) = show x
   show (VBool x) = show x
   show VClosure{} = "<<closure>>"
 
-type Eval t = Except String t
+type Eval t = Except T.Text t
 
-type Scope = Map.Map String Value
+type Scope = Map.Map T.Text Value
 
 eval :: Scope -> Expr -> Eval Value
 eval env expr = case expr of
@@ -49,7 +51,7 @@ binop Mul (VInt a) (VInt b) = return $ VInt (a*b)
 binop Eql (VInt a) (VInt b) = return $ VBool (a==b)
 binop _ _ _ = throwError "Tried to do arithmetic operation over non-number"
 
-extend :: Scope -> String -> Value -> Scope
+extend :: Scope -> T.Text -> Value -> Scope
 extend env v t = Map.insert v t env
 
 apply :: Value -> Value -> Eval Value
@@ -59,5 +61,5 @@ apply _ _  = throwError "Tried to apply closure"
 emptyScope :: Scope
 emptyScope = Map.empty
 
-runEval :: Expr -> Either String Value
+runEval :: Expr -> Either T.Text Value
 runEval x = runExcept (eval emptyScope x)

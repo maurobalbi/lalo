@@ -24,7 +24,6 @@ library
                     , Lalo.Syntax
                     , Lalo.Parser
                     , Lalo.Eval
-                    , Lalo.Lexer
 
     -- Modules included in this library but not exported.
     -- other-modules:
@@ -35,6 +34,9 @@ library
                     , containers
                     , array
                     , mtl
+                    , megaparsec
+                    , text
+                    , parser-combinators
     hs-source-dirs:   src
     default-language: GHC2021
 
@@ -51,11 +53,8 @@ executable lalo
       , haskeline
       , transformers
       , mtl
+      , text
       , lalo
-    
-    build-tool-depends:
-        happy:happy
-      , alex:alex
 
     hs-source-dirs:   app
     default-language: GHC2021

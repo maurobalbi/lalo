@@ -1,6 +1,7 @@
 module Lalo.Syntax where
+import Data.Text 
 
-type Name = String
+type Name = Text
 
 data Expr
   = Lam Name Expr

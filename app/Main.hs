@@ -1,15 +1,15 @@
 import Lalo.Syntax (Expr)
 import Lalo.Eval (runEval)
-import Lalo.Parser (parseExpr, parseTokens)
+import Lalo.Parser (parseExpr)
+
+import Data.Text qualified as T
 
 import Control.Monad.Trans
 import System.Console.Haskeline
 
 process :: String -> IO ()
 process input = do
-  let tokens = parseTokens input
-  putStrLn ("Tokens: " ++ show tokens)
-  let ast = parseExpr input
+  let ast = parseExpr $ T.pack input
   putStrLn ("Syntax: " ++ show ast)
   case ast of
     Left err -> do
@@ -23,10 +23,11 @@ exec ast = do
   case result of
     Left err -> do
       putStrLn "Runtime Error:"
-      putStrLn err
+      putStrLn $ show err
     Right res -> print res
 
-main :: IO ()
+-- main :: IO ()
+-- main = putStrLn "bla"
 main = runInputT defaultSettings loop
   where
   loop = do
