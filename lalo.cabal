@@ -36,6 +36,10 @@ library
                     , mtl
                     , megaparsec
                     , text
+                    , template-haskell
+                    , scientific
+                    , prettyprinter
+                    , prettyprinter-ansi-terminal
                     , parser-combinators
     hs-source-dirs:   src
     default-language: GHC2021

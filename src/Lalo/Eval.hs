@@ -1,13 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Lalo.Eval (
-  runEval,
-) where
+module Lalo.Eval
+    ( runEval
+    ) where
 
 import Lalo.Syntax
 
-import Control.Monad.Except
-import qualified Data.Map as Map
-import qualified Data.Text as T
+import           Control.Monad.Except
+import qualified Data.Map             as Map
+import qualified Data.Text            as T
 
 data Value
   = VInt Integer
@@ -15,8 +15,8 @@ data Value
   | VClosure T.Text Expr (Scope)
 
 instance Show Value where
-  show (VInt x) = show x
-  show (VBool x) = show x
+  show (VInt x)   = show x
+  show (VBool x)  = show x
   show VClosure{} = "<<closure>>"
 
 type Eval t = Except T.Text t
@@ -30,9 +30,9 @@ eval env expr = case expr of
   If p t f -> do
     pred <- eval env p
     case pred of
-      VBool True -> eval env t
+      VBool True  -> eval env t
       VBool False -> eval env f
-      _ -> error "Woop"
+      _           -> error "Woop"
   Var x -> return $ env Map.! x
   Lam x body -> return (VClosure x body env)
   App a b -> do
@@ -56,7 +56,7 @@ extend env v t = Map.insert v t env
 
 apply :: Value -> Value -> Eval Value
 apply (VClosure v t0 e) t1 = eval (extend e v t1) t0
-apply _ _  = throwError "Tried to apply closure"
+apply _ _                  = throwError "Tried to apply closure"
 
 emptyScope :: Scope
 emptyScope = Map.empty

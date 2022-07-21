@@ -1,4 +1,4 @@
-import Lalo.Syntax (Expr)
+import Lalo.Syntax 
 import Lalo.Eval (runEval)
 import Lalo.Parser (parseExpr)
 

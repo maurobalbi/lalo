@@ -1,22 +1,33 @@
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE GADTs #-}
+{-# LANGUAGE GADTs             #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
+
 module Lalo.Parser where
 
-import Text.Megaparsec hiding (token)
-import qualified Text.Megaparsec.Char.Lexer as L
-import qualified Data.Text as T
-import Data.Void
-import Data.Foldable
-import Text.Megaparsec.Char (space1, alphaNumChar, digitChar, string, letterChar)
-import Data.Text.Internal.Encoding.Fusion (restreamUtf16BE)
-import Data.Char (digitToInt)
-import Data.Bifoldable (Bifoldable)
-import Lalo.Syntax ( Binop(..), Lit(..), Expr(..) )
+import           Data.Bifoldable                    (Bifoldable)
+import           Data.Char                          (digitToInt)
+import           Data.Foldable
+import qualified Data.Text                          as T
+import           Data.Text.Internal.Encoding.Fusion (restreamUtf16BE)
+import           Data.Void
+
+import           Lalo.Input                         (Input)
+import           Lalo.Location                      (Offset)
+import           Lalo.Syntax                        (Expr, Literal)
+import qualified Lalo.Syntax                        as Syntax
+
+import           Data.String                        (IsString)
+import           GHC.Exts                           (IsString (fromString))
+import           Text.Megaparsec                    hiding (token)
+import           Text.Megaparsec.Char               (alphaNumChar, digitChar,
+                                                     letterChar, space1, string)
+import qualified Text.Megaparsec.Char.Lexer         as L
+import Control.Monad.Combinators.Expr
 
 type Parser = Parsec Void T.Text
 
 reservedWords :: [T.Text]
-reservedWords = 
+reservedWords =
   [ "if"
   , "then"
   , "else"
@@ -70,7 +81,7 @@ parens :: Parser a -> Parser a
 parens = between (symbol "(") (symbol ")")
 
 keyword :: T.Text -> Parser T.Text
-keyword keyword = lexeme (string keyword <* notFollowedBy alphaNumChar)
+keyword keyword = token (string keyword <* notFollowedBy alphaNumChar)
 
 identifier :: Parser T.Text
 identifier = token $ (p >>= notReservedWord)
@@ -80,50 +91,76 @@ identifier = token $ (p >>= notReservedWord)
                         then fail $ "Keyword " ++ show w ++ " is not a valid identifier"
                         else pure w
 
------ 
-literal :: Parser Lit
-literal = LInt <$> integer
+-- Location
+locatedIdentifier :: Parser (Offset, T.Text)
+locatedIdentifier = (,) <$> getOffset <*> identifier <?> "identifier"
+
+locatedSymbol :: T.Text -> Parser Offset
+locatedSymbol s = getOffset <* (symbol s)
+
+locatedKeyword :: T.Text -> Parser Offset
+locatedKeyword text = getOffset <* (keyword text)
+
+locatedInt :: Parser (Offset, Literal)
+locatedInt = (,) <$> getOffset <*> (Syntax.LInt <$> integer)
+
+locatedBool :: Parser (Offset, Literal)
+locatedBool = (,) <$> getOffset <*> (pure (Syntax.LBool True) <* locatedKeyword "True" <|> pure (Syntax.LBool False) <* locatedKeyword "False")
+-----
 
 aexpr = parens expr
   <|> lambda
-  <|> lit
-  <|> binop
+  <|> literal
   <|> ifexpr
   <|> variable
-  <|> boolean
 
-boolean = Lit <$> LBool <$> (pure True <* keyword "True" <|> pure False <* keyword "False")
-
-expr :: Parser Expr
+expr :: Parser (Expr Offset Input)
 expr = do
   es <- some aexpr
-  pure $ foldl1 App es
+  pure $ foldl1 application es
+    where
+      application function argument = Syntax.Application{location = Syntax.location function, ..}
 
-lambda:: Parser Expr
-lambda = Lam <$> (symbol "\\" *> identifier) <*> expr
- 
-variable :: Parser Expr
-variable = Var <$> identifier
+lambda:: Parser (Expr Offset Input)
+lambda = do
+  location <- locatedSymbol "\\"
+  (nameLocation, name) <- locatedIdentifier
+  symbol "->"
+  body <- expr
+  pure Syntax.Lambda{..}
 
-binop :: Parser Expr
-binop = do
-  keyword "+"
-  r <- expr
-  pure $ Op Add r r
+variable :: Parser (Expr Offset Input)
+variable = do
+  (location, name) <- locatedIdentifier
+  pure Syntax.Variable{..}
 
-ifexpr :: Parser Expr
+ifexpr :: Parser (Expr Offset Input)
 ifexpr = do
-  keyword "if"
-  p <- expr
+  location <- locatedKeyword "if"
+  predicate <- expr
   keyword "then"
-  t <- expr
+  ifTrue <- expr
   keyword "else"
-  f <- expr
-  pure $ If p t f
+  ifFalse <- expr
+  pure Syntax.If{..}
 
-lit :: Parser Expr
-lit = Lit <$> literal
+literal :: Parser (Expr Offset Input)
+literal = do 
+  (location, literal) <- locatedBool <|> locatedInt
+  pure Syntax.Literal{..}
 
+binaryExpr = makeExprParser expr operatorTable
+
+binary :: T.Text -> (Expr a s -> Expr a s -> Expr a s) -> Operator Parser (Expr a s)
+binary name f = InfixL  (f <$ symbol name)
+
+operatorTable :: [[Operator Parser (Expr Offset Input)]]
+operatorTable = [[
+    binary "+" (\x y -> Syntax.Operator{location=0, operator=Syntax.Plus, operatorLocation=0, left=x, right=y})
+  ]]
+
+-- >>> runParser (fully expr) "<interactive>" "\\x->x"
+-- Left (ParseErrorBundle {bundleErrors = TrivialError 1 (Just (Tokens ('x' :| ""))) (fromList []) :| [], bundlePosState = PosState {pstateInput = "\\x->x", pstateOffset = 0, pstateSourcePos = SourcePos {sourceName = "<interactive>", sourceLine = Pos 1, sourceColumn = Pos 1}, pstateTabWidth = Pos 8, pstateLinePrefix = ""}})
 parseExpr input = runParser expr "<interactive>" input
 
 
