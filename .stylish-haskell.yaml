@@ -115,6 +115,7 @@ steps:
   - simple_align:
       cases: always
       top_level_patterns: always
+      lists: always
       records: always
       multi_way_if: always
 
