@@ -41,31 +41,6 @@ reservedWords =
     "False"
   ]
 
--- High level combinators
-(<**>) = flip (<*>)
-
-infixl1 :: (a -> b) -> Parser a -> Parser (b -> a -> b) -> Parser b
-infixl1 wrap p op = rest <*> (wrap <$> p)
-  where
-    rest = flip (.) <$> (flip <$> op <*> p) <*> rest <|> pure id
-
-infixr1 :: (a -> b) -> Parser a -> Parser (a -> b -> b) -> Parser b
-infixr1 wrap p op = (flip <$> op <*> infixr1 wrap p op <|> pure wrap) <*> p
-
-postfix :: (a -> b) -> Parser a -> Parser (b -> b) -> Parser b
-postfix wrap p op = (wrap <$> p) <**> rest
-  where
-    rest = flip (.) <$> op <*> rest <|> pure id
-
-prefix :: (a -> b) -> Parser (b -> b) -> Parser a -> Parser b
-prefix wrap op p = op <*> prefix wrap op p <|> wrap <$> p
-
-chainl1 :: Parser b -> Parser (b -> b -> b) -> Parser b
-chainl1 = infixl1 id
-
-chainr1 :: Parser b -> Parser (b -> b -> b) -> Parser b
-chainr1 = infixr1 id
-
 -- Lexing
 whiteSpace :: Parser ()
 whiteSpace = L.space space1 (L.skipLineComment "//") (L.skipBlockComment "/*" "*/")
@@ -110,15 +85,16 @@ locatedSymbol s = getOffset <* (symbol s)
 locatedKeyword :: T.Text -> Parser Offset
 locatedKeyword text = getOffset <* (keyword text)
 
-locatedInt :: Parser (Offset, Literal)
-locatedInt = (,) <$> getOffset <*> (Syntax.LInt <$> integer)
+integerLiteral :: Parser Literal
+integerLiteral = Syntax.LInt <$> integer
 
-locatedBool :: Parser (Offset, Literal)
-locatedBool =
-  (,) <$> getOffset
-    <*> ( pure (Syntax.LBool True) <* locatedKeyword "True"
-            <|> pure (Syntax.LBool False) <* locatedKeyword "False"
-        )
+boolLiteral :: Parser Literal
+boolLiteral =
+  Syntax.LBool True <$ keyword "True"
+    <|> Syntax.LBool False <$ keyword "False"
+
+unitLiteral :: Parser Literal
+unitLiteral = Syntax.LUnit <$ symbol "()"
 
 -----
 expr :: Parser (Expr Offset Input)
@@ -136,9 +112,9 @@ aexpr =
 
 term :: Parser (Expr Offset Input)
 term =
-  parens expr
+  literal
+    <|> parens expr
     <|> ifExpr
-    <|> literal
     <|> variable
 
 letExpr :: Parser (Expr Offset Input)
@@ -181,7 +157,8 @@ ifExpr = do
 
 literal :: Parser (Expr Offset Input)
 literal = do
-  (location, literal) <- locatedBool <|> locatedInt
+  location <- getOffset
+  literal <- boolLiteral <|> integerLiteral <|> unitLiteral
   pure Syntax.Literal {..}
 
 binaryExpr :: Parser (Expr Offset Input)
@@ -195,17 +172,14 @@ parseOperation _symbol operator = do
 
 operatorTable :: [[Operator Parser (Expr Offset Input)]]
 operatorTable =
-  [ [ InfixL $ parseOperation "*" Syntax.Times
-    ],
+  [ [InfixL $ parseOperation "&&" Syntax.And],
+    [InfixL $ parseOperation "||" Syntax.Or],
+    [InfixL $ parseOperation "*" Syntax.Times],
     [ InfixL $ parseOperation "+" Syntax.Plus,
       InfixL $ parseOperation "-" Syntax.Minus
     ]
   ]
 
--- [ [binary "+" (\x y -> Syntax.Operator {location = 0, operator = Syntax.Plus, operatorLocation = 0, left = x, right = y})],
---   []
--- ]
-
 -- >>> runParser (fully expr) "<interactive>" "\\x->x + 1"
--- Left (ParseErrorBundle {bundleErrors = TrivialError 6 (Just (Tokens ('+' :| ""))) (fromList [Tokens ('(' :| ""),Tokens ('F' :| "alse"),Tokens ('T' :| "rue"),Tokens ('\\' :| ""),Tokens ('i' :| "f"),Label ('i' :| "dentifier"),Label ('i' :| "nteger"),EndOfInput]) :| [], bundlePosState = PosState {pstateInput = "\\x->x + 1", pstateOffset = 0, pstateSourcePos = SourcePos {sourceName = "<interactive>", sourceLine = Pos 1, sourceColumn = Pos 1}, pstateTabWidth = Pos 8, pstateLinePrefix = ""}})
+-- Right (Lambda {location = 0, nameLocation = 1, name = "x", body = Operator {location = 4, left = Variable {location = 4, name = "x"}, operatorLocation = 6, operator = Plus, right = Literal {location = 8, literal = LInt 1}}})
 parseExpr input = runParser expr "<interactive>" input
