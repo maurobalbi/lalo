@@ -8,63 +8,60 @@ import Data.Text as T
 import GHC.Generics (Generic)
 import Language.Haskell.TH.Syntax (Lift)
 
-data Expr s a
-  = Variable
-      { location :: s,
+data Expr
+    = Variable {
         name :: Text
       }
-  | Lambda
-      { location :: s,
-        nameLocation :: s,
+  | Lambda {
         name :: Text,
-        body :: Expr s a
+        body :: Expr
       }
   | Application
-      { location :: s,
-        function :: Expr s a,
-        argument :: Expr s a
+      { 
+        function :: Expr,
+        argument :: Expr
       }
   | Let
-      { location :: s,
-        bindings :: NonEmpty (Binding s a),
-        body :: Expr s a
+      { 
+        bindings :: NonEmpty (Binding),
+        body :: Expr 
       }
   | If
-      { location :: s,
-        predicate :: Expr s a,
-        ifTrue :: Expr s a,
-        ifFalse :: Expr s a
+      { 
+        predicate :: Expr,
+        ifTrue :: Expr,
+        ifFalse :: Expr
       }
   | Literal
-      { location :: s,
+      { 
         literal :: Literal
       }
   | Operator
-      { location :: s,
-        left :: Expr s a,
-        operatorLocation :: s,
+      { 
+        left :: Expr,
         operator :: Operator,
-        right :: Expr s a
+        right :: Expr 
       }
-  deriving stock (Eq, Foldable, Functor, Generic, Lift, Show, Traversable)
+  deriving stock (Eq,  Show)
 
 data Literal
-  = LBool Bool
-  | LInt Int
-  | LUnit
+  = Bool Bool
+  | Int Int
+  | Unit
   deriving (Eq, Generic, Lift, Show)
 
 data Operator
   = And
   | Or
+  | Eq
   | Plus
   | Minus
   | Times
   deriving (Eq, Generic, Lift, Show)
 
-data Binding s a = Binding
-  { nameLocation :: s,
+data Binding= Binding
+  { 
     name :: Text,
-    assignment :: Expr s a
+    assignment :: Expr
   }
-  deriving stock (Eq, Foldable, Functor, Generic, Lift, Show, Traversable)
+  deriving stock (Eq, Show)

@@ -86,38 +86,38 @@ locatedKeyword :: T.Text -> Parser Offset
 locatedKeyword text = getOffset <* (keyword text)
 
 integerLiteral :: Parser Literal
-integerLiteral = Syntax.LInt <$> integer
+integerLiteral = Syntax.Int <$> integer
 
 boolLiteral :: Parser Literal
 boolLiteral =
-  Syntax.LBool True <$ keyword "True"
-    <|> Syntax.LBool False <$ keyword "False"
+  Syntax.Bool True <$ keyword "True"
+    <|> Syntax.Bool False <$ keyword "False"
 
 unitLiteral :: Parser Literal
-unitLiteral = Syntax.LUnit <$ symbol "()"
+unitLiteral = Syntax.Unit <$ symbol "()"
 
 -----
-expr :: Parser (Expr Offset Input)
+expr :: Parser (Expr)
 expr = do
   es <- some aexpr
   pure $ foldl1 application es
   where
-    application function argument = Syntax.Application {location = Syntax.location function, ..}
+    application function argument = Syntax.Application {function, ..}
 
-aexpr :: Parser (Expr Offset Input)
+aexpr :: Parser (Expr)
 aexpr =
   lambda
     <|> letExpr
     <|> binaryExpr
 
-term :: Parser (Expr Offset Input)
+term :: Parser (Expr)
 term =
   literal
     <|> parens expr
     <|> ifExpr
     <|> variable
 
-letExpr :: Parser (Expr Offset Input)
+letExpr :: Parser (Expr)
 letExpr = do
   location <- locatedKeyword "let"
   bindings <- binding
@@ -125,14 +125,14 @@ letExpr = do
   body <- expr
   pure Syntax.Let {bindings = bindings :| [], ..}
 
-binding :: Parser (Binding Offset Input)
+binding :: Parser (Binding)
 binding = do
   (nameLocation, name) <- locatedIdentifier
   symbol "="
   assignment <- expr
   pure Syntax.Binding {..}
 
-lambda :: Parser (Expr Offset Input)
+lambda :: Parser (Expr)
 lambda = do
   location <- locatedSymbol "\\"
   (nameLocation, name) <- locatedIdentifier
@@ -140,12 +140,12 @@ lambda = do
   body <- expr
   pure Syntax.Lambda {..}
 
-variable :: Parser (Expr Offset Input)
+variable :: Parser (Expr)
 variable = do
   (location, name) <- locatedIdentifier
   pure Syntax.Variable {..}
 
-ifExpr :: Parser (Expr Offset Input)
+ifExpr :: Parser (Expr)
 ifExpr = do
   location <- locatedKeyword "if"
   predicate <- expr
@@ -155,31 +155,32 @@ ifExpr = do
   ifFalse <- expr
   pure Syntax.If {..}
 
-literal :: Parser (Expr Offset Input)
+literal :: Parser (Expr)
 literal = do
   location <- getOffset
   literal <- boolLiteral <|> integerLiteral <|> unitLiteral
   pure Syntax.Literal {..}
 
-binaryExpr :: Parser (Expr Offset Input)
+binaryExpr :: Parser (Expr)
 binaryExpr = makeExprParser term operatorTable
 
-parseOperation :: T.Text -> Syntax.Operator -> Parser (Expr Int a -> Expr Int a -> Expr Int a)
+parseOperation :: T.Text -> Syntax.Operator -> Parser (Expr -> Expr -> Expr)
 parseOperation _symbol operator = do
   location <- getOffset
   symbol _symbol
-  pure $ \expr1 expr2 -> Syntax.Operator {location = Syntax.location expr1, operator = operator, operatorLocation = location, left = expr1, right = expr2}
+  pure $ \expr1 expr2 -> Syntax.Operator {operator = operator, left = expr1, right = expr2}
 
-operatorTable :: [[Operator Parser (Expr Offset Input)]]
+operatorTable :: [[Operator Parser (Expr)]]
 operatorTable =
   [ [InfixL $ parseOperation "&&" Syntax.And],
     [InfixL $ parseOperation "||" Syntax.Or],
     [InfixL $ parseOperation "*" Syntax.Times],
     [ InfixL $ parseOperation "+" Syntax.Plus,
       InfixL $ parseOperation "-" Syntax.Minus
-    ]
+    ],
+    [InfixL $ parseOperation "==" Syntax.Eq]
   ]
 
 -- >>> runParser (fully expr) "<interactive>" "\\x->x + 1"
--- Right (Lambda {location = 0, nameLocation = 1, name = "x", body = Operator {location = 4, left = Variable {location = 4, name = "x"}, operatorLocation = 6, operator = Plus, right = Literal {location = 8, literal = LInt 1}}})
+-- Right (Lambda {location = 0, nameLocation = 1, name = "x", body = Operator {location = 4, left = Variable {location = 4, name = "x"}, operatorLocation = 6, operator = Plus, right = Literal {location = 8, literal = Int 1}}})
 parseExpr input = runParser expr "<interactive>" input
