@@ -151,37 +151,14 @@ ti env (Syntax.Let ((Syntax.Binding x e1) :| _) e2) =
     (s2, t2) <- ti (apply s1 env'') e2
     pure (s1 `composeSubst` s2, t2)
 
+
 typeInference :: M.Map T.Text Type.Scheme -> Syntax.Expr -> TI Type.Type
 typeInference env e =
   do
     (s, t) <- ti (TypeEnv env) e
     pure (apply s t)
 
--- unify :: (MonadError TypeInferenceError m) => Type.Type -> Type.Type -> m ()
--- unify (Type.Literal Type.Unit) (Type.Literal Type.Unit) = pure ()
--- unify (Type.Literal Type.Bool) (Type.Literal Type.Bool) = pure ()
--- unify (Type.Literal Type.Int) (Type.Literal Type.Int) = pure ()
--- unify (Type.Function ti1 to1) (Type.Function ti2 to2) = do
---   unify ti1 ti2
---   unify to1 to2
--- unify f1 f2 = throwError $ UnifyError f1 f2
-
--- inferType :: (MonadError TypeInferenceError m) => Context -> Syntax.Expr -> m Type.Type
--- inferType context Syntax.Literal {literal = Syntax.Bool _, ..} =
---   pure $ Type.Literal Type.Bool
--- inferType context Syntax.Literal {literal = Syntax.Unit, ..} =
---   pure $ Type.Literal Type.Unit
--- inferType context Syntax.Literal {literal = Syntax.Int _, ..} =
---   pure $ Type.Literal Type.Int
--- inferType context Syntax.Operator {operator = Syntax.Eq, left = e1, right = e2} = do
---   e1' <- inferType context e1
---   e2' <- inferType context e2
---   unify e1' e2'
---   pure $ Type.Literal Type.Bool
--- inferType context Syntax.If {..} = do
---   p' <- inferType context predicate
---   e1' <- inferType context ifTrue
---   e2' <- inferType context ifFalse
---   unify p' (Type.Literal Type.Bool)
---   unify e1' e2'
---   pure $ e1'
+-- >>> import Lalo.Syntax
+-- >>> let ast = Lambda {name = "x", body = Variable {name = "x"}}
+-- >>> runTI (typeInference M.empty ast)
+-- (Right (Function (Variable "a0") (Variable "a0")),TIState {tiSupply = 1})

@@ -1,21 +1,6 @@
 import module  //imported from src/module
 import module1 as m // import qualified
 
-let x = 1;
 
-let multiply = (a, b) -> {
-  a * b
-}
+let bla = \x -> x;
 
-let fact = (n) -> {
-  match n {
-    0 -> 1,
-    otherwise -> n * fact(n-1)
-  }
-}
-
-fact(multiply(10,2))
-
-let multiplyBy2 = (_, 2)   //let multiplyBy2 = (a) -> (a, 2)
-
-1.multiply(5)
