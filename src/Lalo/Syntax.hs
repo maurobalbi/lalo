@@ -7,6 +7,7 @@ import Data.List.NonEmpty (NonEmpty (..))
 import Data.Text as T
 import GHC.Generics (Generic)
 import Language.Haskell.TH.Syntax (Lift)
+import qualified Lalo.Type as Type
 
 data Expr
     = Variable {
@@ -16,6 +17,10 @@ data Expr
         name :: Text,
         body :: Expr
       }
+  | Annotation {
+        annotated :: Expr,
+        annotation :: Type.Type
+    }
   | Application
       { 
         function :: Expr,

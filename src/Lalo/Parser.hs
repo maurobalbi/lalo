@@ -181,6 +181,7 @@ operatorTable =
     [InfixL $ parseOperation "==" Syntax.Eq]
   ]
 
+
 -- >>> runParser (fully expr) "<interactive>" "\\x-> if x then 1 else 2"
 -- Right (Lambda {name = "x", body = If {predicate = Variable {name = "x"}, ifTrue = Literal {literal = Int 1}, ifFalse = Literal {literal = Int 2}}})
 parseExpr input = runParser expr "<interactive>" input
