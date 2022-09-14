@@ -28,6 +28,7 @@ library
                     , Lalo.Pretty
                     , Lalo.Parser
                     , Lalo.Eval
+                    , Lalo.Bidir
 
     -- Modules included in this library but not exported.
     -- other-modules:

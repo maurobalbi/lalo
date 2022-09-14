@@ -27,6 +27,7 @@ import Text.Megaparsec.Char
     string,
   )
 import Text.Megaparsec.Char.Lexer qualified as L
+import qualified Lalo.Type as Type
 
 type Parser = Parsec Void T.Text
 
@@ -97,15 +98,23 @@ unitLiteral :: Parser Literal
 unitLiteral = Syntax.Unit <$ symbol "()"
 
 -----
-expr :: Parser (Expr)
-expr = do
-  es <- some aexpr
+aexpr :: Parser (Expr)
+aexpr = do
+  es <- some uexpr
   pure $ foldl1 application es
   where
-    application function argument = Syntax.Application {function, ..}
+    application function argument = Syntax.Application {..}
 
-aexpr :: Parser (Expr)
-aexpr =
+expr :: Parser (Expr)
+expr = do
+  annotated <- aexpr
+  ann <- optional $ symbol ":" *> typeDef
+  case ann of
+    Nothing -> pure annotated
+    Just annotation  -> pure Syntax.Annotation{..}
+
+uexpr :: Parser (Expr)
+uexpr =
   lambda
     <|> letExpr
     <|> binaryExpr
@@ -128,6 +137,7 @@ letExpr = do
 binding :: Parser (Binding)
 binding = do
   (nameLocation, name) <- locatedIdentifier
+  annotation <- optional $ symbol ":" *> typeDef
   symbol "="
   assignment <- expr
   pure Syntax.Binding {..}
@@ -137,7 +147,7 @@ lambda = do
   location <- locatedSymbol "\\"
   (nameLocation, name) <- locatedIdentifier
   symbol "->"
-  body <- expr
+  body <- aexpr
   pure Syntax.Lambda {..}
 
 variable :: Parser (Expr)
@@ -181,7 +191,34 @@ operatorTable =
     [InfixL $ parseOperation "==" Syntax.Eq]
   ]
 
+literalType :: Parser Type.Type
+literalType = 
+  do 
+    keyword "Bool"
+    pure $ Type.TLiteral Type.TBool
+  <|>
+  do
+    keyword "Int"
+    pure $ Type.TLiteral Type.TInt
+  <|>
+  do
+    keyword "()"
+    pure $ Type.TLiteral Type.TUnit
 
--- >>> runParser (fully expr) "<interactive>" "\\x-> if x then 1 else 2"
--- Right (Lambda {name = "x", body = If {predicate = Variable {name = "x"}, ifTrue = Literal {literal = Int 1}, ifFalse = Literal {literal = Int 2}}})
+-- >>> runParser (fully typeDef) "<interactive>" "(Int -> Bool) -> Int"
+-- Right (Function (Function (Literal Int) (Literal Bool)) (Literal Int))
+typeDef :: Parser Type.Type
+typeDef = makeExprParser typeTerm [[InfixR parseArrow]]
+  where
+    parseArrow = do
+      symbol "->"
+      pure $ \type1 type2 -> Type.TFunction type1 type2 
+
+typeTerm :: Parser Type.Type
+typeTerm = 
+  literalType
+    <|> parens typeDef
+
+-- >>> runParser (fully expr) "<interactive>" "(\\x -> (x: Int))"
+-- Right (Lambda {name = "x", body = Annotation {annotated = Variable {name = "x"}, annotation = TLiteral TInt}})
 parseExpr input = runParser expr "<interactive>" input

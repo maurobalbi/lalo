@@ -64,9 +64,10 @@ data Operator
   | Times
   deriving (Eq, Generic, Lift, Show)
 
-data Binding= Binding
+data Binding = Binding
   { 
     name :: Text,
+    annotation :: Maybe Type.Type,
     assignment :: Expr
   }
   deriving stock (Eq, Show)

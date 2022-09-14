@@ -3,15 +3,19 @@ module Lalo.Type where
 import Data.Text qualified as T
 
 data Literal
-  = Bool
-  | Int
-  | Unit
+  = TBool
+  | TInt
+  | TUnit
   deriving (Eq, Show)
 
+newtype TVar = TypeVar {unTVar :: T.Text} deriving (Eq, Ord, Show)
+
 data Type
-  = Literal Literal
-  | Function Type Type
-  | Variable T.Text
+  = TLiteral Literal
+  | TFunction Type Type
+  | TVariable T.Text
+  | TExists TVar
+  | TForall TVar Type
   deriving (Eq, Show)
 
 data Scheme = Scheme [T.Text] Type

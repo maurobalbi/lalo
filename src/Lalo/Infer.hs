@@ -25,14 +25,14 @@ class Types a where
   apply :: Subst -> a -> a
 
 instance Types Type.Type where
-  ftv (Type.Variable n) = S.singleton n
-  ftv (Type.Literal _) = S.empty
-  ftv (Type.Function t1 t2) = ftv t1 `S.union` ftv t2
+  ftv (Type.TVariable n) = S.singleton n
+  ftv (Type.TLiteral _) = S.empty
+  ftv (Type.TFunction t1 t2) = ftv t1 `S.union` ftv t2
 
-  apply s (Type.Variable n) = case M.lookup n s of
-    Nothing -> Type.Variable n
+  apply s (Type.TVariable n) = case M.lookup n s of
+    Nothing -> Type.TVariable n
     Just t -> t
-  apply s (Type.Function t1 t2) = Type.Function (apply s t1) (apply s t2)
+  apply s (Type.TFunction t1 t2) = Type.TFunction (apply s t1) (apply s t2)
   apply s t = t
 
 instance Types Type.Scheme where
@@ -89,7 +89,7 @@ newTyVar prefix =
   do
     s <- get
     put s {tiSupply = tiSupply s + 1}
-    return (Type.Variable (prefix `T.append` (T.pack $ show (tiSupply s))))
+    return (Type.TVariable (prefix `T.append` (T.pack $ show (tiSupply s))))
 
 instantiate :: Type.Scheme -> TI Type.Type
 instantiate (Type.Scheme vars t) =
@@ -99,25 +99,25 @@ instantiate (Type.Scheme vars t) =
     pure $ apply s t
 
 mgu :: Type.Type -> Type.Type -> TI Subst
-mgu (Type.Function l r) (Type.Function l' r') =
+mgu (Type.TFunction l r) (Type.TFunction l' r') =
   do
     s1 <- mgu l l'
     s2 <- mgu (apply s1 r) (apply s1 r')
     pure (s1 `composeSubst` s2)
-mgu (Type.Variable u) t = varBind u t
-mgu t (Type.Variable u) = varBind u t
-mgu (Type.Literal _) (Type.Literal _) = pure nullSubst
+mgu (Type.TVariable u) t = varBind u t
+mgu t (Type.TVariable u) = varBind u t
+mgu (Type.TLiteral _) (Type.TLiteral _) = pure nullSubst
 mgu t1 t2 = throwError $ "Types do not unify" `T.append` (T.pack $ show t1) `T.append` "" `T.append` (T.pack $ show t2)
 
 varBind :: T.Text -> Type.Type -> TI Subst
 varBind u t
-  | t == Type.Variable u = pure nullSubst
+  | t == Type.TVariable u = pure nullSubst
   | u `S.member` ftv t = throwError $ "Occurs check fails: " `T.append` u `T.append` " vs. " `T.append` (T.pack $ show t)
   | otherwise = pure (M.singleton u t)
 
 tiLit :: Syntax.Literal -> TI (Subst, Type.Type)
-tiLit (Syntax.Int _) = pure (nullSubst, Type.Literal Type.Int)
-tiLit (Syntax.Bool _) = pure (nullSubst, Type.Literal Type.Bool)
+tiLit (Syntax.Int _) = pure (nullSubst, Type.TLiteral Type.TInt)
+tiLit (Syntax.Bool _) = pure (nullSubst, Type.TLiteral Type.TBool)
 
 ti :: TypeEnv -> Syntax.Expr -> TI (Subst, Type.Type)
 ti (TypeEnv env) (Syntax.Variable n) =
@@ -133,16 +133,16 @@ ti env (Syntax.Lambda n e) =
     let TypeEnv env' = remove env n
         env'' = TypeEnv (env' `M.union` (M.singleton n (Type.Scheme [] tv)))
     (s1, t1) <- ti env'' e
-    pure (s1, Type.Function (apply s1 tv) t1)
+    pure (s1, Type.TFunction (apply s1 tv) t1)
 ti env exp@(Syntax.Application e1 e2) =
   do
     tv <- newTyVar "a"
     (s1, t1) <- ti env e1
     (s2, t2) <- ti (apply s1 env) e2
-    s3 <- mgu (apply s2 t1) (Type.Function t2 tv)
+    s3 <- mgu (apply s2 t1) (Type.TFunction t2 tv)
     pure (s3 `composeSubst` s2 `composeSubst` s1, apply s3 tv)
     `catchError` \e -> throwError $ e `T.append` "\n in" `T.append` (T.pack $ show exp)
-ti env (Syntax.Let ((Syntax.Binding x e1) :| _) e2) =
+ti env (Syntax.Let ((Syntax.Binding x _ e1) :| _) e2) =
   do
     (s1, t1) <- ti env e1
     let TypeEnv env' = remove env x
@@ -159,6 +159,6 @@ typeInference env e =
     pure (apply s t)
 
 -- >>> import Lalo.Syntax
--- >>> let ast = Lambda {name = "x", body = Variable {name = "x"}}
+-- >>> let ast = Lambda {name = "x", body = Literal (Int 1)}
 -- >>> runTI (typeInference M.empty ast)
--- (Right (Function (Variable "a0") (Variable "a0")),TIState {tiSupply = 1})
+-- (Right (Function (Variable "a0") (Literal Int)),TIState {tiSupply = 1})
