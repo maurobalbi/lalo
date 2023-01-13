@@ -8,12 +8,12 @@ data Literal
   | TUnit
   deriving (Eq, Show)
 
-newtype TVar = TypeVar {unTVar :: T.Text} deriving (Eq, Ord, Show)
+newtype TVar = MkTVar {unTVar :: T.Text} deriving (Eq, Ord, Show)
 
 data Type
   = TLiteral Literal
   | TFunction Type Type
-  | TVariable T.Text
+  | TVariable TVar
   | TExists TVar
   | TForall TVar Type
   deriving (Eq, Show)
